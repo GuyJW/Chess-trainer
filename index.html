@@ -356,6 +356,17 @@ function isMateOrDraw(){
   return null;
 }
 
+
+function dynamicDepth(){
+  const pieceCount = S.board.filter(p=>p!==null).length;
+  let baseDepth = 2;
+  if(pieceCount < 20) baseDepth = 3; // late game deeper search
+  // Detect mobile (very basic)
+  const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+  if(isMobile) baseDepth = Math.max(1, baseDepth - 1);
+  return baseDepth;
+}
+
 /* ====== Evaluation & AI ====== */
 let transTable = {}; // Transposition table for caching evaluated positions
 const VAL = {p:100, n:320, b:330, r:500, q:900, k:0};
@@ -365,11 +376,6 @@ function evaluate(){
     const pc=pAt(sq); if(!pc) continue;
     const v = VAL[pc.t]; score += (pc.c==='w'? v : -v);
   }
-  const wm=genMoves('w').length, bm=genMoves('b').length;
-  score += (wm-bm)*0.8;
-  const wk=FR(S.wk), bk=FR(S.bk);
-  score += (7-Math.abs(wk.f-3.5))*0.2 + (wk.r)*0.2;
-  score -= (7-Math.abs(bk.f-3.5))*0.2 + (7-bk.r)*0.2;
   return score;
 }
 function orderMoves(moves){
@@ -388,6 +394,7 @@ function search(depth, alpha, beta){
   const moves=orderMoves(genMoves(S.side));
   if(moves.length===0){ if(inCheck(S.side)) return -99999+(4-depth); return 0; }
   for(const m of moves){
+    if(performance.now()-startTime > timeLimit) break;
     const snap=make(m,true);
     const sc = -search(depth-1,-beta,-alpha);
     unmake(snap);
@@ -406,6 +413,13 @@ function scoreMoveNegamax(m, depth){
   return score;
 }
 function bestMoveFor(){
+  const startTime = performance.now();
+  const timeLimit = /Mobi|Android/i.test(navigator.userAgent) ? 150 : 300;
+  let depth = dynamicDepth();
+  const elo = parseInt(document.getElementById('eloSel').value,10);
+  if(elo<=900) depth=1; else if(elo<=1400) depth=2; else if(elo<=1800) depth=3;
+  depth = Math.min(depth, 3);
+
   const elo = parseInt(document.getElementById('eloSel').value,10);
   let depth=2;
   if(elo<=900) depth=1; else if(elo<=1400) depth=2; else if(elo<=1800) depth=3; depth=Math.min(depth,3);
@@ -413,6 +427,7 @@ function bestMoveFor(){
   let best=null, bestScore=-1e9;
   const moves=orderMoves(genMoves(S.side));
   for(const m of moves){
+    if(performance.now()-startTime > timeLimit) break;
     const sc = scoreMoveNegamax(m, depth);
     if(sc>bestScore){ bestScore=sc; best=m; }
   }
