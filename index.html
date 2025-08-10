@@ -357,6 +357,7 @@ function isMateOrDraw(){
 }
 
 /* ====== Evaluation & AI ====== */
+let transTable = {}; // Transposition table for caching evaluated positions
 const VAL = {p:100, n:320, b:330, r:500, q:900, k:0};
 function evaluate(){
   let score=0;
@@ -380,6 +381,8 @@ function orderMoves(moves){
   });
 }
 function search(depth, alpha, beta){
+  const key = JSON.stringify({board:S.board,side:S.side,depth});
+  if(transTable[key]!==undefined) return transTable[key];
   if(depth===0) return evaluate();
   let best=-1e9;
   const moves=orderMoves(genMoves(S.side));
@@ -392,6 +395,7 @@ function search(depth, alpha, beta){
     if(sc>alpha) alpha=sc;
     if(alpha>=beta) break;
   }
+  transTable[key] = best;
   return best;
 }
 function scoreMoveNegamax(m, depth){
@@ -404,7 +408,7 @@ function scoreMoveNegamax(m, depth){
 function bestMoveFor(){
   const elo = parseInt(document.getElementById('eloSel').value,10);
   let depth=2;
-  if(elo<=900) depth=1; else if(elo<=1400) depth=2; else if(elo<=1800) depth=3;
+  if(elo<=900) depth=1; else if(elo<=1400) depth=2; else if(elo<=1800) depth=3; depth=Math.min(depth,3);
   else if(elo<=2300) depth=3; else if(elo<=2600) depth=4; else depth=4;
   let best=null, bestScore=-1e9;
   const moves=orderMoves(genMoves(S.side));
