@@ -129,7 +129,25 @@ const FR = sq => ({f: sq%8, r: (sq/8)|0});
 const SQ = (f,r)=> r*8+f;
 const inb = (f,r)=> f>=0 && f<8 && r>=0 && r<8;
 const clone = x => JSON.parse(JSON.stringify(x));
-function pushFeed(msg, who="sys"){
+
+let feedQueue = [];
+setInterval(()=>{
+  if(feedQueue.length){
+    const el=document.getElementById('feed');
+    feedQueue.forEach(msgObj=>{
+      const time = new Date().toLocaleTimeString();
+      const p=document.createElement('div');
+      p.style.marginBottom='8px';
+      p.innerHTML = `<span style="opacity:.7">${time}</span> — <strong>${msgObj.who}:</strong> ${msgObj.msg}`;
+      el.appendChild(p);
+    });
+    feedQueue=[];
+    el.scrollTop = el.scrollHeight;
+  }
+}, 200);
+function pushFeed(msg, who="sys"){ feedQueue.push({msg, who}); }
+
+// function pushFeed(msg, who="sys"){
   const el=document.getElementById('feed');
   const time = new Date().toLocaleTimeString();
   const p=document.createElement('div');
@@ -477,6 +495,24 @@ function sqFromCanvas(x,y){
   return SQ(f,r);
 }
 
+
+function drawCenterHighlight(){
+  const ctx = canvas.getContext('2d');
+  const PAD=28; 
+  const SIZE=canvas.width - PAD - 6; 
+  const TILE=SIZE/8;
+  const centerSquares = ['d4','e4','d5','e5'];
+  ctx.strokeStyle = 'yellow';
+  ctx.lineWidth = 2;
+  centerSquares.forEach(name=>{
+    const f = "abcdefgh".indexOf(name[0]);
+    const r = parseInt(name[1]) - 1;
+    const x = PAD + f*TILE;
+    const y = PAD + (7-r)*TILE;
+    ctx.strokeRect(x+1, y+1, TILE-2, TILE-2);
+  });
+}
+
 function drawBoard(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
   for(let r=0;r<8;r++){
@@ -542,11 +578,34 @@ function drawControlMap(){
     if(color){ ctx.fillStyle=color; ctx.fillRect(pos.x,pos.y,TILE,TILE); }
   }
 }
+
+let cachedControl = {w: null, b: null, key: ""};
 function controlCounts(color){
+  const key = JSON.stringify(S.board)+S.side;
+  if(cachedControl[color] && cachedControl.key===key) return cachedControl[color];
   const counts=new Array(64).fill(0);
   for(let sq=0;sq<64;sq++){
     const pc=pAt(sq); if(!pc||pc.c!==color) continue;
     const {f,r}=FR(sq);
+    if(pc.t==='p'){
+      const dir= pc.c==='w'?1:-1;
+      for(const df of [-1,1]){ const cf=f+df, cr=r+dir; if(inb(cf,cr)) counts[SQ(cf,cr)]++; }
+    } else if(pc.t==='n'){
+      for(const [df,dr] of DIRS.n){ const cf=f+df, cr=r+dr; if(inb(cf,cr)) counts[SQ(cf,cr)]++; }
+    } else if(pc.t==='k'){
+      for(const [df,dr] of DIRS.q){ const cf=f+df, cr=r+dr; if(inb(cf,cr)) counts[SQ(cf,cr)]++; }
+    } else {
+      const vecs = pc.t==='b'?DIRS.b: pc.t==='r'?DIRS.r:DIRS.q;
+      for(const [df,dr] of vecs){
+        let cf=f+df, cr=r+dr;
+        while(inb(cf,cr)){ const to=SQ(cf,cr); counts[to]++; if(pAt(to)) break; cf+=df; cr+=dr; }
+      }
+    }
+  }
+  cachedControl[color] = counts; cachedControl.key = key;
+  return counts;
+}
+=FR(sq);
     if(pc.t==='p'){
       const dir= pc.c==='w'?1:-1;
       for(const df of [-1,1]){ const cf=f+df, cr=r+dir; if(inb(cf,cr)) counts[SQ(cf,cr)]++; }
